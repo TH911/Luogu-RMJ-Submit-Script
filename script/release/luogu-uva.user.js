@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         luogu RMJ UVa
 // @namespace    luogu-uva-direct
-// @version      1.0.1
+// @version      1.0.2
+// @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js
+// @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js
 // @description  用自己的 UVa 账号提交代码，并在洛谷评测记录页查看本题提交。
 // @match        https://www.luogu.com.cn/*
 // @match        https://www.luogu.com/*

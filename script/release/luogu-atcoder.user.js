@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         luogu RMJ AtCoder
 // @namespace    luogu-atcoder-direct
-// @version      1.3.3
+// @version      1.3.4
+// @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js
+// @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js
 // @description  用自己的 AtCoder 账号提交代码，并在洛谷评测记录页查看本题提交。
 // @match        https://www.luogu.com.cn/*
 // @match        https://www.luogu.com/*

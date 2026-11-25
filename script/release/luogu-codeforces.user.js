@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         luogu RMJ CodeForces
 // @namespace    luogu-codeforces-direct
-// @version      1.1.6
+// @version      1.1.7
+// @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js
+// @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js
 // @description  在洛谷编写代码，用自己的 Codeforces 账号提交并查看记录。
 // @match        https://www.luogu.com.cn/*
 // @match        https://www.luogu.com/*
