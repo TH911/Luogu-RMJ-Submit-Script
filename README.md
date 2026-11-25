@@ -8,10 +8,10 @@
 
 | 评测站点 | 版本 | 安装 |
 | --- | --- | --- |
-| AtCoder | 1.3.3 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/luogu-atcoder.user.js) |
-| Codeforces | 1.1.6 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/luogu-codeforces.user.js) |
-| SPOJ | 1.0.3 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/luogu-spoj.user.js) |
-| UVa Online Judge | 1.0.1 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/luogu-uva.user.js) |
+| AtCoder | 1.3.3 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js) |
+| Codeforces | 1.1.6 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js) |
+| SPOJ | 1.0.3 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-spoj.user.js) |
+| UVa Online Judge | 1.0.1 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js) |
 
 ## 使用
 
@@ -21,4 +21,6 @@
 
 脚本会在浏览器标签页之间临时传递代码和提交状态，并通过远程站点的页面提交代码。请先确认所登录的账号和所选语言。
 
-目录组织和安装表参考 [OJBetter](https://github.com/beijixiaohu/OJBetter)。
+## 版本发布
+
+更新脚本时，同步更新脚本的 `@version` 和安装表中的版本号，并在 GitHub 发布 Release，注明更新的脚本和版本。
