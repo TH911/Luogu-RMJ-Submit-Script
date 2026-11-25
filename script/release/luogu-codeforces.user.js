@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         luogu RMJ CodeForces
 // @namespace    luogu-codeforces-direct
-// @version      1.1.7
+// @version      1.2.0
 // @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js
 // @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js
 // @description  在洛谷编写代码，用自己的 Codeforces 账号提交并查看记录。
@@ -167,14 +167,12 @@
         'WRONG_ANSWER', 'PRESENTATION_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED',
         'OUTPUT_LIMIT_EXCEEDED', 'IDLENESS_LIMIT_EXCEEDED', 'SECURITY_VIOLATED', 'REJECTED', 'CHALLENGED', 'PARTIAL'
     ]);
-    function remoteJudgeStatus(code) {
+    function remoteJudgeStatus({ code, verdict }) {
+        if (code === 'SUBMITTED' || code === 'IN_QUEUE' || (!code && !verdict)) return 0; // Waiting
+        if (code === 'TESTING') return 1; // Judging
         if (code === 'OK') return 12;                // Accepted
         if (code === 'COMPILATION_ERROR') return 2; // Compile Error
         return unacceptedVerdicts.has(code) ? 14 : 11; // Unaccepted / Unknown Error
-    }
-
-    function awaitingVerdict(item) {
-        return item.code === 'SUBMITTED' || item.code === 'TESTING' || (!item.code && !item.verdict);
     }
 
     function submissionTime(text) {
@@ -194,7 +192,7 @@
             const memory = /^([\d.]+)\s*(KB|KiB|MB|MiB|B)?$/i.exec(item.memory);
             return {
                 id: 'CF' + item.id, user, problem: problem || { pid, name: item.problem.replace(/^\S+\s*[-–]\s*/, '') },
-                status: remoteJudgeStatus(item.code), submitTime: Number.isFinite(timestamp) ? timestamp : 0,
+                status: remoteJudgeStatus(item), submitTime: Number.isFinite(timestamp) ? timestamp : 0,
                 time: parseFloat(item.runtime), memory: memory ? Number(memory[1]) *
                     (/^m/i.test(memory[2]) ? 1024 : /^b$/i.test(memory[2]) ? 1 / 1024 : 1) : undefined,
                 // Reserve the native language icon and caption. Its text is filled with CF's compiler label.
@@ -212,6 +210,7 @@
             view.controller?.abort();
             if (!view.block.isUnmounted && view.block.props.records === view.merged)
                 view.block.props.records = view.original;
+            view.card.removeEventListener('click', view.follow, true);
             view.controls.remove();
             view = null;
         }
@@ -220,14 +219,9 @@
                 const id = link.hostname === 'codeforces.com' ? link.pathname.split('/').pop()
                     : /^\/record\/CF(\d+)$/.exec(link.pathname)?.[1];
                 const item = current.items.get(id);
-                if (!item) {
-                    if (link.title.startsWith('Codeforces #')) link.removeAttribute('title');
-                    continue;
-                }
+                if (!item) continue;
                 if (link.hostname !== 'codeforces.com')
                     link.href = 'https://codeforces.com' + contestPath(current.target) + '/submission/' + id;
-                const title = 'Codeforces #' + id + ' · ' + item.verdict;
-                if (link.title !== title) link.title = title;
                 const row = link.closest('.row');
                 const line = row.querySelector('.detail > div:not(.metrics)');
                 const language = line && [...line.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -276,7 +270,12 @@
             action.type = 'button';
             controls.append(status, action);
             (main.querySelector('.result .count') || card).append(controls);
-            const current = view = { pid, search: location.search, card, block, controls, original: block.props.records };
+            const follow = event => {
+                const link = event.target.closest?.('a.status');
+                if (link?.origin === 'https://codeforces.com') event.stopPropagation();
+            };
+            card.addEventListener('click', follow, true);
+            const current = view = { pid, search: location.search, card, follow, block, controls, original: block.props.records };
             async function read() {
                 const controller = current.controller = new AbortController();
                 const { signal } = controller;
@@ -294,16 +293,11 @@
                     if (signal.aborted || location.search !== current.search || !card.isConnected) return;
                     const problem = current.original.result.find(r => r.problem?.pid === pid)?.problem || target.problem;
                     current.target = target;
-                    const judged = records.filter(item => !awaitingVerdict(item));
-                    const pending = records.length - judged.length;
-                    current.items = new Map(judged.map(item => [item.id, item]));
+                    current.items = new Map(records.map(item => [item.id, item]));
                     // Give the existing component a display copy. Its parent keeps the server response and paginator.
-                    block.props.records = mergedRecords(current.original, judged, user, pid, problem);
+                    block.props.records = mergedRecords(current.original, records, user, pid, problem);
                     current.merged = block.props.records;
-                    const summary = [];
-                    if (judged.length) summary.push('+ ' + judged.length + ' 条 CF 记录');
-                    if (pending) summary.push(pending + ' 条 CF 记录待评测');
-                    notice(summary.join(' · ') || '此题暂无 CF 记录', 'done');
+                    notice(records.length ? '+ ' + records.length + ' 条 CF 记录' : '此题暂无 CF 记录', 'done');
                     schedule();
                 } catch (error) { notice(error.message, 'error'); }
                 finally {
@@ -620,8 +614,10 @@
         return sessionStorage.getItem(key);
     }
     function challengePage() {
-        return Boolean(document.querySelector('#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running'))
-            || /just a moment|checking your browser|正在验证|しばらくお待ち/i.test(document.title);
+        return Boolean(document.querySelector(
+            '#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running, ' +
+            'script[src*="/cdn-cgi/challenge-platform/"][src*="/orchestrate/"]'
+        ));
     }
     function widgetPending(form) {
         const names = ['cf-turnstile-response', 'g-recaptcha-response', 'h-captcha-response'];

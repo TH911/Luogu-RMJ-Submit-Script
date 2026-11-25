@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         luogu RMJ SPOJ
 // @namespace    luogu-spoj-direct
-// @version      1.0.4
+// @version      1.1.0
 // @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-spoj.user.js
 // @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-spoj.user.js
 // @description  用自己的 SPOJ 账号提交代码，并在洛谷评测记录页查看本题提交。
@@ -566,8 +566,10 @@
         return sessionStorage.getItem(key);
     }
     function challengePage() {
-        return Boolean(document.querySelector('#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running, script[src*="/cdn-cgi/challenge-platform/"][src*="/orchestrate/"]'))
-            || /^(?:请稍候|請稍候|请稍等|請稍等|just a moment|checking your browser|正在验证|正在驗證|しばらくお待ち)/i.test(document.title.trim());
+        return Boolean(document.querySelector(
+            '#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running, ' +
+            'script[src*="/cdn-cgi/challenge-platform/"][src*="/orchestrate/"]'
+        ));
     }
     function widgetPending(form) {
         const names = ['cf-turnstile-response', 'g-recaptcha-response', 'h-captcha-response'];
@@ -590,12 +592,15 @@
     }
 
     function verdictCode(cell) {
+        const status = cell.getAttribute('status');
         const text = [cell.textContent, cell.title, cell.querySelector('[title]')?.title].join(' ');
         if (/compil(?:ation|e) error|\bCE\b/i.test(text)) return 'CE';
         if (/wrong answer|runtime error|time limit|memory limit|output limit|presentation error|signal|\b(?:WA|RE|TLE|MLE|OLE)\b/i.test(text)) return 'WA';
-        if (/\baccepted\b|\bAC\b/i.test(text) || cell.getAttribute('status') === '15') return 'AC';
-        if (/waiting|queued|pending/i.test(text)) return 'WJ';
-        if (/running|judging|compiling/i.test(text)) return 'Judging';
+        if (/\baccepted\b|\bAC\b/i.test(text) || status === '15') return 'AC';
+        if (/waiting|\bqueue(?:d)?\b|pending/i.test(text)) return 'WJ';
+        if (/running|judging|compiling|testing|executing/i.test(text)) return 'Judging';
+        if (status === '0' || /^-\d+$/.test(status)) return 'WJ';
+        if (/^[1-8]$/.test(status)) return 'Judging';
         return 'IE';
     }
 

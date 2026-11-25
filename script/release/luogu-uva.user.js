@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         luogu RMJ UVa
 // @namespace    luogu-uva-direct
-// @version      1.0.2
+// @version      1.1.0
 // @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js
 // @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js
 // @description  用自己的 UVa 账号提交代码，并在洛谷评测记录页查看本题提交。
@@ -101,7 +101,7 @@
                         finish(null, isQuery ? { records: job.records } : { url: job.url, message: job.message, worker: tab });
                         return;
                     }
-                    if (job.message) notify(job.message, job.notice, job.notice === 'verification' ? cancel : undefined);
+                    if (job.message) notify(job.message, job.notice, job.phase === 'ready' ? cancel : undefined);
                     if (job.notice === 'verification') verificationTimer = setTimeout(
                         () => interrupted('人机验证等待超时，请重试。'),
                         Math.max(0, job.verificationSince + verificationLimit - Date.now())
@@ -326,13 +326,12 @@
                 return;
             }
             const options = {
-                titleText: title, text,
+                titleText: title, text, showCancelButton: !!onCancel, cancelButtonText: '取消',
                 theme: document.documentElement.dataset.lcolorTheme === 'dark' ? 'dark' : 'light'
             };
             if (waiting) {
                 Object.assign(options, {
                     customClass: { popup: popupClass }, showConfirmButton: false,
-                    showCancelButton: !!onCancel, cancelButtonText: '取消',
                     allowEscapeKey: !onCancel,
                     didOpen: popup => { if (dialogs.getPopup() === popup) dialogs.showLoading(); }
                 });
@@ -387,14 +386,15 @@
 
         async function submit(number) {
             submitting = true;
+            const controller = new AbortController();
             try {
                 const draft = await readEditor();
                 if (!draft.code?.trim()) throw Error('请在洛谷编辑器中输入源代码，或重新选择源文件。');
                 if (!draft.language || /自动|选择|auto|select|choose/i.test(draft.language))
                     throw Error('请在洛谷的语言列表中选择源代码使用的语言。');
-                report('正在连接 UVa…');
+                report('正在连接 UVa…', 'loading', () => controller.abort());
                 if (number !== pidFromPath()) throw Error('题目已切换，请在当前题目重新提交。');
-                const receipt = await launch({ ...draft, number, operation: 'submit' }, report);
+                const receipt = await launch({ ...draft, number, operation: 'submit' }, report, controller.signal);
                 if (!receipt) return;
                 if (receipt.uncertain) { report(receipt.uncertain, 'uncertain'); return; }
                 await report(receipt.message, 'done');
@@ -443,17 +443,19 @@
                 && /^(?:show_)?my_submissions$/.test(url.searchParams.get('page') || '')));
     }
 
-    function challengePending() {
-        return Boolean(document.querySelector('#challenge-form, #challenge-running, #challenge-stage'))
-            || /just a moment|checking your browser|正在验证/i.test(document.title);
+    function challengePage() {
+        return Boolean(document.querySelector(
+            '#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running, ' +
+            'script[src*="/cdn-cgi/challenge-platform/"][src*="/orchestrate/"]'
+        ));
     }
 
     function statusCode(verdict) {
-        const label = verdict.trim().toLowerCase();
+        const label = verdict.replace(/[.…]+\s*$/, '').trim().replace(/\s+/g, ' ').toLowerCase();
         if (/^(?:ac|accepted)$/.test(label)) return 12;
         if (/^(?:ce|compil(?:e|ation) error)$/.test(label)) return 2;
-        if (/^(?:in queue|queued|waiting|submitted)$/.test(label)) return 0;
-        if (/^(?:judging|running|compiling)$/.test(label)) return 1;
+        if (/^(?:in (?:judge )?queue|queued|waiting(?: for judg(?:e|ing))?|submitted|pending)$/.test(label)) return 0;
+        if (/^(?:judging|running|compiling)(?: on test(?: case)? \d+)?$/.test(label)) return 1;
         if (/^(?:wa|re|tle|mle|ole|pe|rf|unaccepted|(?:time|memory|output) limit(?: exceeded)?|wrong answer|run[\s-]*time error|presentation error|restricted function)$/.test(label)) return 14;
         return 11;
     }
@@ -581,7 +583,7 @@
         const startUrl = reading ? mySubmissionsUrl : quickSubmitUrl;
         try {
             while ((job = getJob(id))) {
-                if (challengePending()) {
+                if (challengePage()) {
                     notice('等待人机验证…', 'verification');
                     await delay(600);
                     continue;

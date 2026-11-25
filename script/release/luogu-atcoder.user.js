@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         luogu RMJ AtCoder
 // @namespace    luogu-atcoder-direct
-// @version      1.3.4
+// @version      1.4.0
 // @updateURL    https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js
 // @downloadURL  https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js
 // @description  用自己的 AtCoder 账号提交代码，并在洛谷评测记录页查看本题提交。
@@ -169,7 +169,8 @@
     // Luogu RMJ groups failed test cases under Unaccepted.
     const nativeStatus = {
         AC: 12, WA: 14, RE: 14, TLE: 14, MLE: 14, OLE: 14, QLE: 14,
-        CE: 2, IE: 11, WJ: 0, WR: 0, Judging: 1
+        CE: 2, IE: 11, WJ: 0, WR: 0, Waiting: 0, Judging: 1,
+        'Waiting for Judging': 0, 'Waiting for Re-judging': 0
     };
 
     function mergedRecords(original, records, user, pid, problem) {
@@ -370,24 +371,24 @@
         let submitting = false;
         let lastNotice;
         function report(text, kind = 'loading', onCancel) {
+            const sameCancelAction = lastNotice?.onCancel === onCancel;
             lastNotice = { text, kind, onCancel };
             const title = {
                 loading: '正在提交', verification: '正在提交', login: '请登录 AtCoder',
                 uncertain: '提交状态待确认', error: '提交失败', done: '提交成功'
             }[kind];
             const waiting = kind === 'loading' || kind === 'verification';
-            if (waiting && dialogs.getPopup()?.classList.contains('lgat-' + kind)) {
+            if (waiting && sameCancelAction && dialogs.getPopup()?.classList.contains('lgat-' + kind)) {
                 dialogs.getHtmlContainer().textContent = text;
                 return;
             }
             const options = {
-                titleText: title, text,
+                titleText: title, text, showCancelButton: !!onCancel, cancelButtonText: '取消',
                 theme: document.documentElement.dataset.lcolorTheme === 'dark' ? 'dark' : 'light'
             };
             if (waiting) {
                 Object.assign(options, {
                     customClass: { popup: 'lgat-' + kind }, showConfirmButton: false,
-                    showCancelButton: !!onCancel, cancelButtonText: '取消',
                     allowEscapeKey: !onCancel,
                     didOpen: popup => { if (dialogs.getPopup() === popup) dialogs.showLoading(); }
                 });
@@ -462,9 +463,12 @@
                     if (error) reject(error);
                     else resolve(receipt);
                 }
-                function abort() { finish(new DOMException('已取消查询。', 'AbortError')); }
+                function abort() {
+                    if (reading || !tab) finish(new DOMException('已取消。', 'AbortError'));
+                    else if (getJob(id)?.phase === 'ready') stopWaiting('cancel');
+                }
                 function stopWaiting(reason) {
-                    if (finished || stopping || getJob(id)?.notice !== 'verification') return;
+                    if (finished || stopping || (reason === 'timeout' && getJob(id)?.notice !== 'verification')) return;
                     if (reading) { finish(Error('人机验证等待超时，请刷新记录。')); return; }
                     stopping = reason;
                     // A separate key survives a simultaneous status update from the worker.
@@ -484,11 +488,11 @@
                         if (data.phase === 'done') {
                             finish(null, reading ? { records: data.records } : { url: data.result, message: data.message, worker: tab });
                         } else if (data.notice === 'verification') {
-                            notify(data.message, 'verification', () => stopWaiting('cancel'));
+                            notify(data.message, 'verification', data.phase === 'ready');
                             verificationTimer = setTimeout(() => stopWaiting('timeout'),
                                 Math.max(0, data.verificationSince + verificationLimit - Date.now()));
                         } else if (data.message) {
-                            notify(data.message, data.notice || 'loading');
+                            notify(data.message, data.notice || 'loading', data.phase === 'ready');
                         }
                     });
                     tab = GM_openInTab(reading ? recordsUrl(job, id) : workerUrl(job, id), { active: false, insert: true });
@@ -515,15 +519,19 @@
 
         async function submit(pid) {
             submitting = true;
+            const controller = new AbortController();
+            const cancel = () => controller.abort();
+            const notify = (text, kind, cancellable = true) => report(text, kind, cancellable ? cancel : undefined);
             try {
                 const draft = await readEditor();
                 if (!draft.code?.trim()) throw Error('请在洛谷编辑器中输入源代码，或重新选择源文件。');
                 if (!draft.language || /自动|选择|auto|select|choose/i.test(draft.language))
                     throw Error('请在洛谷的语言列表中选择源代码使用的语言。');
-                report('正在连接 AtCoder…');
-                const target = await resolveTask(pid);
+                notify('正在连接 AtCoder…');
+                const target = await resolveTask(pid, false, controller.signal);
+                if (controller.signal.aborted) return;
                 if (pid !== pidFromPath()) throw Error('题目已切换，请在当前题目重新提交。');
-                const receipt = await launch(target, draft);
+                const receipt = await launch(target, draft, notify, controller.signal);
                 if (!receipt) return;
                 if (receipt.uncertain) { report(receipt.uncertain, 'uncertain'); return; }
                 await report(receipt.message, 'done');
@@ -531,7 +539,7 @@
                     const tab = GM_openInTab(receipt.url, { active: true, insert: true });
                     if (tab) receipt.worker?.close();
                 } catch { /* The original worker tab already contains the submission record. */ }
-            } catch (error) { report(error.message, 'error'); }
+            } catch (error) { if (error.name !== 'AbortError') report(error.message, 'error'); }
             finally { submitting = false; }
         }
 
@@ -568,8 +576,10 @@
         return sessionStorage.getItem(key);
     }
     function challengePage() {
-        return Boolean(document.querySelector('#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running'))
-            || /just a moment|checking your browser|正在验证|しばらくお待ち/i.test(document.title);
+        return Boolean(document.querySelector(
+            '#challenge-running, #challenge-form, #challenge-stage, #cf-challenge-running, ' +
+            'script[src*="/cdn-cgi/challenge-platform/"][src*="/orchestrate/"]'
+        ));
     }
     function widgetPending(form) {
         const names = ['cf-turnstile-response', 'g-recaptcha-response', 'h-captcha-response'];
@@ -610,7 +620,8 @@
                     a.pathname.startsWith(base + '/submissions/') && /\/\d+$/.test(a.pathname));
                 const sid = detail?.pathname.split('/').pop() || row.getAttribute('data-id');
                 const cell = index => row.cells[index]?.textContent.trim() || '';
-                const verdict = cell(result);
+                const label = row.cells[result]?.querySelector('.label');
+                const verdict = cell(result) || label?.getAttribute('data-original-title') || label?.title;
                 if (!/^\d+$/.test(sid || '') || !verdict) throw Error('AtCoder 返回了无法识别的提交记录。');
                 const time = row.querySelector('time');
                 records.set(sid, { id: sid, code: /\d+\s*\/\s*\d+/.test(verdict) ? 'Judging' : verdict,

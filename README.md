@@ -8,10 +8,10 @@
 
 | 评测站点 | 版本 | 安装 |
 | --- | --- | --- |
-| AtCoder | 1.3.4 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js) |
-| Codeforces | 1.1.7 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js) |
-| SPOJ | 1.0.4 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-spoj.user.js) |
-| UVa Online Judge | 1.0.2 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js) |
+| AtCoder | 1.4.0 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-atcoder.user.js) |
+| Codeforces | 1.2.0 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-codeforces.user.js) |
+| SPOJ | 1.1.0 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-spoj.user.js) |
+| UVa Online Judge | 1.1.0 | [安装脚本](https://raw.githubusercontent.com/TH911/Luogu-RMJ-Submit-Script/main/script/release/luogu-uva.user.js) |
 
 ## 使用
 
